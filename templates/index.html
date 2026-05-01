@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wumpus World Logic Agent</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #0f1117;
+    color: #e2e8f0;
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  h1 {
+    text-align: center;
+    font-size: 22px;
+    font-weight: 600;
+    color: #f8fafc;
+    margin-bottom: 20px;
+    letter-spacing: 1px;
+  }
+
+  .controls {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  .controls label { font-size: 13px; color: #94a3b8; }
+
+  .controls input[type=number] {
+    width: 55px;
+    padding: 6px 8px;
+    background: #1e2330;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    color: #e2e8f0;
+    font-size: 14px;
+  }
+
+  button {
+    padding: 8px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: opacity 0.15s;
+  }
+  button:hover { opacity: 0.85; }
+
+  #btn-new { background: #3b82f6; color: white; }
+
+  .layout {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  #grid-container {
+    display: inline-grid;
+    gap: 4px;
+    padding: 12px;
+    background: #1e2330;
+    border-radius: 10px;
+    border: 1px solid #334155;
+  }
+
+  .cell {
+    width: 80px;
+    height: 80px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 500;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.1s;
+    position: relative;
+    user-select: none;
+  }
+
+  .cell:hover { transform: scale(1.04); }
+
+  .cell.unvisited  { background: #2d3748; color: #718096; }
+  .cell.visited    { background: #1a365d; color: #90cdf4; border-color: #2b6cb0; }
+  .cell.safe       { background: #1c4532; color: #68d391; border-color: #276749; }
+  .cell.agent      { background: #2d3a8c; color: #a3bffa; border-color: #5a67d8; }
+  .cell.pit        { background: #63171b; color: #fc8181; border-color: #c53030; }
+  .cell.wumpus-cell{ background: #44337a; color: #d6bcfa; border-color: #6b46c1; }
+
+  .cell .icon { font-size: 22px; line-height: 1; }
+  .cell .label { font-size: 10px; margin-top: 3px; }
+  .cell .percept-icons { font-size: 13px; margin-top: 2px; letter-spacing: 2px; }
+
+  .sidebar {
+    min-width: 220px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .panel {
+    background: #1e2330;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+
+  .panel h3 {
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+  }
+
+  .metric { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px; }
+  .metric .val { font-weight: 600; color: #f8fafc; }
+
+  .percept-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    margin: 3px 3px 0 0;
+  }
+  .percept-badge.breeze  { background: #1e3a5f; color: #90cdf4; }
+  .percept-badge.stench  { background: #3c2a10; color: #f6ad55; }
+  .percept-badge.none    { background: #1a202c; color: #718096; }
+
+  #message {
+    background: #1e2330;
+    border-left: 3px solid #3b82f6;
+    padding: 10px 14px;
+    border-radius: 0 8px 8px 0;
+    font-size: 13px;
+    color: #cbd5e0;
+    min-height: 40px;
+  }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 8px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #94a3b8; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<h1>Wumpus World — Logic Agent</h1>
+
+<div class="controls">
+  <label>Rows <input type="number" id="inp-rows" value="4" min="2" max="8"></label>
+  <label>Cols <input type="number" id="inp-cols" value="4" min="2" max="8"></label>
+  <button id="btn-new" onclick="newGame()">New Game</button>
+</div>
+
+<div id="message">Press "New Game" to start.</div>
+<br>
+
+<div class="layout">
+  <div id="grid-container"></div>
+
+  <div class="sidebar">
+    <div class="panel">
+      <h3>Metrics</h3>
+      <div class="metric"><span>Inference Steps</span><span class="val" id="m-steps">0</span></div>
+      <div class="metric"><span>Cells Visited</span><span class="val" id="m-visited">0</span></div>
+      <div class="metric"><span>Safe Cells Found</span><span class="val" id="m-safe">0</span></div>
+    </div>
+
+    <div class="panel">
+      <h3>Current Percepts</h3>
+      <div id="percept-display"><span class="percept-badge none">None</span></div>
+    </div>
+
+    <div class="panel">
+      <h3>Legend</h3>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#2d3a8c"></div>Agent</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#1c4532"></div>Safe</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#1a365d"></div>Visited</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#2d3748"></div>Unknown</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#63171b"></div>Pit</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#44337a"></div>Wumpus</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>How to Play</h3>
+      <p style="font-size:12px;color:#94a3b8;line-height:1.6">
+        Click an adjacent cell to move the agent.<br><br>
+        <b style="color:#90cdf4">Breeze</b> = pit nearby<br>
+        <b style="color:#f6ad55">Stench</b> = Wumpus nearby<br><br>
+        Green cells are inferred safe by the resolution engine. Avoid unknown cells!
+      </p>
+    </div>
+  </div>
+</div>
+
+<script>
+let state = null;
+
+async function newGame() {
+  const rows = parseInt(document.getElementById("inp-rows").value);
+  const cols = parseInt(document.getElementById("inp-cols").value);
+  const res = await fetch("/new_game", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({rows, cols})
+  });
+  state = await res.json();
+  render();
+}
+
+async function moveAgent(r, c) {
+  if (!state || state.game_over) return;
+  const ar = state.agent.row, ac = state.agent.col;
+  if (Math.abs(r - ar) + Math.abs(c - ac) !== 1) return;
+
+  const res = await fetch("/move", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({row: r, col: c})
+  });
+  state = await res.json();
+  render();
+}
+
+function render() {
+  if (!state) return;
+
+  document.getElementById("message").textContent = state.message;
+  document.getElementById("m-steps").textContent = state.inference_steps;
+
+  let visitedCount = 0, safeCount = 0;
+  state.grid.forEach(row => row.forEach(cell => {
+    if (cell.visited) visitedCount++;
+    if (cell.safe && !cell.visited) safeCount++;
+  }));
+  document.getElementById("m-visited").textContent = visitedCount;
+  document.getElementById("m-safe").textContent = safeCount;
+
+  const p = state.current_percepts;
+  const pDiv = document.getElementById("percept-display");
+  let html = "";
+  if (p.breeze) html += `<span class="percept-badge breeze">Breeze</span>`;
+  if (p.stench) html += `<span class="percept-badge stench">Stench</span>`;
+  if (!p.breeze && !p.stench) html = `<span class="percept-badge none">None</span>`;
+  pDiv.innerHTML = html;
+
+  const grid = document.getElementById("grid-container");
+  grid.style.gridTemplateColumns = `repeat(${state.cols}, 80px)`;
+  grid.innerHTML = "";
+
+  state.grid.forEach(row => {
+    row.forEach(cell => {
+      const div = document.createElement("div");
+      div.className = "cell";
+
+      if (cell.hazard === "pit") {
+        div.classList.add("pit");
+        div.innerHTML = `<div class="icon">&#9679;</div><div class="label">PIT</div>`;
+      } else if (cell.hazard === "wumpus") {
+        div.classList.add("wumpus-cell");
+        div.innerHTML = `<div class="icon">&#9829;</div><div class="label">WUMPUS</div>`;
+      } else if (cell.agent) {
+        div.classList.add("agent");
+        div.innerHTML = `<div class="icon">&#9678;</div><div class="label">AGENT</div>`;
+        const percIcons = (cell.percepts.breeze ? "~" : "") + (cell.percepts.stench ? "!" : "");
+        if (percIcons) div.innerHTML += `<div class="percept-icons">${percIcons}</div>`;
+      } else if (cell.visited) {
+        div.classList.add("visited");
+        const percIcons = (cell.percepts.breeze ? "~" : "") + (cell.percepts.stench ? "!" : "");
+        div.innerHTML = `<div class="label">(${cell.row},${cell.col})</div><div class="percept-icons">${percIcons || "&bull;"}</div>`;
+      } else if (cell.safe) {
+        div.classList.add("safe");
+        div.innerHTML = `<div class="label">(${cell.row},${cell.col})</div><div class="percept-icons">&#10003;</div>`;
+      } else {
+        div.classList.add("unvisited");
+        div.innerHTML = `<div class="label">(${cell.row},${cell.col})</div><div class="percept-icons">?</div>`;
+      }
+
+      div.onclick = () => moveAgent(cell.row, cell.col);
+      grid.appendChild(div);
+    });
+  });
+}
+
+newGame();
+</script>
+</body>
+</html>
